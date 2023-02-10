@@ -76,18 +76,6 @@ func (r *Relay) AcceptEvent(evt *nostr.Event) bool {
 	return true
 }
 
-func (r *Relay) BeforeSave(evt *nostr.Event) {
-	// do nothing
-}
-
-func (r *Relay) AfterSave(evt *nostr.Event) {
-	// delete all but the 100 most recent ones for each key
-	r.Storage().(*postgresql.PostgresBackend).DB.Exec(`DELETE FROM event WHERE pubkey = $1 AND kind = $2 AND created_at < (
-      SELECT created_at FROM event WHERE pubkey = $1
-      ORDER BY created_at DESC OFFSET 100 LIMIT 1
-    )`, evt.PubKey, evt.Kind)
-}
-
 func main() {
 	cl, err := GetEthClient("Ethereum Mainnet")
 	if err != nil {
