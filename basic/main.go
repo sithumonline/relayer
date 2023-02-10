@@ -4,8 +4,11 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"math/big"
+	"net/http"
 	"time"
 
+	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/fiatjaf/relayer"
 	"github.com/fiatjaf/relayer/storage/postgresql"
 	"github.com/kelseyhightower/envconfig"
@@ -16,6 +19,20 @@ type Relay struct {
 	PostgresDatabase string `envconfig:"POSTGRESQL_DATABASE"`
 
 	storage *postgresql.PostgresBackend
+
+	client *ethclient.Client
+
+	amount *big.Int
+
+	address string
+}
+
+func NewRelay(client *ethclient.Client, amount *big.Int, address string) Relay {
+	return Relay{
+		client:  client,
+		amount:  amount,
+		address: address,
+	}
 }
 
 func (r *Relay) Name() string {
@@ -26,7 +43,9 @@ func (r *Relay) Storage() relayer.Storage {
 	return r.storage
 }
 
-func (r *Relay) OnInitialized(*relayer.Server) {}
+func (r *Relay) OnInitialized(s *relayer.Server) {
+	s.Router().Path("/payments").Methods("POST").Headers("Accept", "application/json").HandlerFunc(func(w http.ResponseWriter, rq *http.Request) { handlePayments(w, rq, r) })
+}
 
 func (r *Relay) Init() error {
 	err := envconfig.Process("", r)
@@ -70,7 +89,11 @@ func (r *Relay) AfterSave(evt *nostr.Event) {
 }
 
 func main() {
-	r := Relay{}
+	cl, err := GetEthClient("Ethereum Mainnet")
+	if err != nil {
+		log.Fatalf("init eth cline filed: %v", err)
+	}
+	r := NewRelay(cl, ToWei(0.02, 18), "0x0a38a13667AcaD385291746B4fCfc59750A5689B")
 	if err := envconfig.Process("", &r); err != nil {
 		log.Fatalf("failed to read from env: %v", err)
 		return
