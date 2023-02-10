@@ -31,11 +31,18 @@ func handlePayments(w http.ResponseWriter, r *http.Request, re *Relay) {
 
 	txHash := common.HexToHash(req.TxHash)
 	var tx *types.Transaction
-	tx, _, err := re.client.TransactionByHash(context.Background(), txHash)
+	tx, isPending, err := re.client.TransactionByHash(context.Background(), txHash)
 	if err != nil {
 		w.WriteHeader(500)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "failed to get transaction: " + err.Error(),
+		})
+		return
+	}
+	if isPending {
+		w.WriteHeader(400)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "tx is still pending",
 		})
 		return
 	}
