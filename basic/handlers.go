@@ -2,14 +2,17 @@ package main
 
 import (
 	"context"
+	"crypto/ecdsa"
+	"encoding/hex"
 	"encoding/json"
 	"log"
 	"net/http"
 
+	"github.com/btcsuite/btcd/btcec/v2"
+	"github.com/btcsuite/btcd/btcec/v2/schnorr"
 	"github.com/ethereum/go-ethereum/common"
-	"github.com/ethereum/go-ethereum/common/hexutil"
 	"github.com/ethereum/go-ethereum/core/types"
-	"golang.org/x/crypto/sha3"
+	"github.com/ethereum/go-ethereum/crypto"
 )
 
 func handlePayments(w http.ResponseWriter, r *http.Request, re *Relay) {
@@ -17,7 +20,7 @@ func handlePayments(w http.ResponseWriter, r *http.Request, re *Relay) {
 
 	type paymentRequest struct {
 		TxHash string `json:"tx_hash"`
-		PubKey string `json:"pubkey"`
+		PvtKey string `json:"pvtkey"`
 	}
 
 	var req paymentRequest
@@ -55,10 +58,23 @@ func handlePayments(w http.ResponseWriter, r *http.Request, re *Relay) {
 		return
 	}
 
-	hash := sha3.NewLegacyKeccak256()
-	hash.Write([]byte(req.PubKey)[1:])
-	tx_receiver := hexutil.Encode(hash.Sum(nil)[12:])
-	if tx_receiver != GetTransactionMessage(tx).From().Hex() {
+	privateKey, err := crypto.HexToECDSA(req.PvtKey)
+	if err != nil {
+		log.Fatal(err)
+	}
+
+	publicKey := privateKey.Public()
+	publicKeyECDSA, ok := publicKey.(*ecdsa.PublicKey)
+	if !ok {
+		w.WriteHeader(500)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "failed to casting public key to ECDSA",
+		})
+		return
+	}
+
+	tx_receiver := crypto.PubkeyToAddress(*publicKeyECDSA)
+	if tx_receiver.Hex() != GetTransactionMessage(tx).From().Hex() {
 		w.WriteHeader(400)
 		json.NewEncoder(w).Encode(map[string]string{
 			"error": "pubkey's hex is not match with tx's hex",
@@ -74,7 +90,9 @@ func handlePayments(w http.ResponseWriter, r *http.Request, re *Relay) {
 		return
 	}
 
-	err = re.storage.SavePayment(req.PubKey, req.TxHash)
+	_, pk := btcec.PrivKeyFromBytes(crypto.FromECDSA(privateKey))
+	pubKey := hex.EncodeToString(schnorr.SerializePubKey(pk))
+	err = re.storage.SavePayment(pubKey, req.TxHash)
 	if err != nil {
 		w.WriteHeader(500)
 		json.NewEncoder(w).Encode(map[string]string{
