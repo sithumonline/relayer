@@ -1,6 +1,8 @@
 package pgsql
 
 import (
+	"database/sql"
+	"fmt"
 	"time"
 
 	"github.com/fiatjaf/relayer/storage"
@@ -42,8 +44,7 @@ func (b *BasicPostgresBackend) SavePayment(pubKey string, txHash string) error {
 	timeInMonth := 30 * 24 * time.Hour
 	res, err := b.DB.Exec(`
         INSERT INTO payment (pubkey, created_at, expiration_at, tx_hash)
-        VALUES ($1, $2, $3, $4, $5, $6, $7)
-		ON CONFLICT (id) DO NOTHING
+        VALUES ($1, $2, $3, $4)
     `, pubKey, timeNow.Unix(), timeNow.Add(timeInMonth).Unix(), txHash)
 	if err != nil {
 		return err
@@ -59,4 +60,35 @@ func (b *BasicPostgresBackend) SavePayment(pubKey string, txHash string) error {
 	}
 
 	return nil
+}
+
+func (b *BasicPostgresBackend) CheckPayment(pubKey string) (bool, error) {
+	rows, err := b.DB.Query(`
+		SELECT * FROM payment
+		WHERE created_at = (
+			SELECT MAX (created_at)
+			FROM payment
+		) AND pubkey = $1
+    `, pubKey)
+	if err != nil && err != sql.ErrNoRows {
+		return false, fmt.Errorf("failed to fetch payment: %w", err)
+	}
+
+	defer rows.Close()
+
+	for rows.Next() {
+		var expiration_at int64
+		err := rows.Scan(nil, nil, &expiration_at, nil)
+		if err != nil {
+			return false, fmt.Errorf("failed to scan payment row: %w", err)
+		}
+
+		if expiration_at > time.Now().Unix() {
+			return true, nil
+		} else {
+			return false, nil
+		}
+	}
+
+	return false, nil
 }

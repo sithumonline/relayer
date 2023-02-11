@@ -68,6 +68,13 @@ func (r *Relay) Init() error {
 }
 
 func (r *Relay) AcceptEvent(evt *nostr.Event) bool {
+	// only accept they have a good preimage for a paid invoice for their public key
+	isPaid, err := r.storage.CheckPayment(evt.PubKey)
+	log.Printf("unable to fetch payment for accept event: %s", err.Error())
+	if !isPaid {
+		return false
+	}
+
 	// block events that are too large
 	jsonb, _ := json.Marshal(evt)
 	if len(jsonb) > 10000 {
