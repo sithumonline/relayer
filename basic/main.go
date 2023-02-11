@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/big"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/ethereum/go-ethereum/ethclient"
@@ -85,11 +86,18 @@ func (r *Relay) AcceptEvent(evt *nostr.Event) bool {
 }
 
 func main() {
-	cl, err := GetEthClient("Ethereum Mainnet")
+	chainName := os.Getenv("CHAIN_NAME")
+	paymentAmount := os.Getenv("PAYMENT_AMOUNT")
+	paymentAddress := os.Getenv("PAYMENT_ADDRESS")
+	if chainName == "" || paymentAmount == "" || paymentAddress == "" {
+		log.Fatal("env is not set")
+	}
+
+	cl, err := GetEthClient(chainName)
 	if err != nil {
 		log.Fatalf("init eth cline filed: %v", err)
 	}
-	r := NewRelay(cl, ToWei(0.02, 18), "0x0a38a13667AcaD385291746B4fCfc59750A5689B")
+	r := NewRelay(cl, ToWei(paymentAmount, 18), paymentAddress)
 	if err := envconfig.Process("", &r); err != nil {
 		log.Fatalf("failed to read from env: %v", err)
 		return
