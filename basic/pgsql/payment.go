@@ -11,6 +11,13 @@ import (
 	"github.com/jmoiron/sqlx/reflectx"
 )
 
+type Payment struct {
+	PubKey       string
+	CreatedAt    int64
+	ExpirationAt int64
+	TxHex        string
+}
+
 type BasicPostgresBackend struct {
 	*postgresql.PostgresBackend
 }
@@ -77,13 +84,12 @@ func (b *BasicPostgresBackend) CheckPayment(pubKey string) (bool, error) {
 	defer rows.Close()
 
 	for rows.Next() {
-		var expiration_at int64
-		err := rows.Scan(nil, nil, &expiration_at, nil)
+		var payment Payment
+		err := rows.Scan(&payment.PubKey, &payment.CreatedAt, &payment.ExpirationAt, &payment.TxHex)
 		if err != nil {
 			return false, fmt.Errorf("failed to scan payment row: %w", err)
 		}
-
-		if expiration_at > time.Now().Unix() {
+		if payment.ExpirationAt > time.Now().Unix() {
 			return true, nil
 		} else {
 			return false, nil

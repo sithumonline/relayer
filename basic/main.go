@@ -71,7 +71,9 @@ func (r *Relay) Init() error {
 func (r *Relay) AcceptEvent(evt *nostr.Event) bool {
 	// only accept they have a good preimage for a paid invoice for their public key
 	isPaid, err := r.storage.CheckPayment(evt.PubKey)
-	log.Printf("unable to fetch payment for accept event: %s", err.Error())
+	if err != nil {
+		log.Printf("unable to fetch payment for accept event: %s", err.Error())
+	}
 	if !isPaid {
 		return false
 	}
