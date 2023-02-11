@@ -74,6 +74,15 @@ func handlePayments(w http.ResponseWriter, r *http.Request, re *Relay) {
 		return
 	}
 
+	err = re.storage.SavePayment(req.PubKey, req.TxHash)
+	if err != nil {
+		w.WriteHeader(500)
+		json.NewEncoder(w).Encode(map[string]string{
+			"error": "unable to save payment: " + err.Error(),
+		})
+		return
+	}
+
 	json.NewEncoder(w).Encode(tx)
 }
 

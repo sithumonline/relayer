@@ -10,6 +10,7 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/fiatjaf/relayer"
+	"github.com/fiatjaf/relayer/basic/pgsql"
 	"github.com/fiatjaf/relayer/storage/postgresql"
 	"github.com/kelseyhightower/envconfig"
 	"github.com/nbd-wtf/go-nostr"
@@ -18,7 +19,7 @@ import (
 type Relay struct {
 	PostgresDatabase string `envconfig:"POSTGRESQL_DATABASE"`
 
-	storage *postgresql.PostgresBackend
+	storage *pgsql.BasicPostgresBackend
 
 	client *ethclient.Client
 
@@ -55,7 +56,7 @@ func (r *Relay) Init() error {
 
 	// every hour, delete all very old events
 	go func() {
-		db := r.Storage().(*postgresql.PostgresBackend)
+		db := r.Storage().(*pgsql.BasicPostgresBackend)
 
 		for {
 			time.Sleep(60 * time.Minute)
@@ -86,7 +87,13 @@ func main() {
 		log.Fatalf("failed to read from env: %v", err)
 		return
 	}
-	r.storage = &postgresql.PostgresBackend{DatabaseURL: r.PostgresDatabase}
+	db := &pgsql.BasicPostgresBackend{
+		PostgresBackend: &postgresql.PostgresBackend{DatabaseURL: r.PostgresDatabase},
+	}
+	if err := db.PaymentInit(); err != nil {
+		log.Fatalf("fil to init payment table: %v", err)
+	}
+	r.storage = db
 	if err := relayer.Start(&r); err != nil {
 		log.Fatalf("server terminated: %v", err)
 	}
