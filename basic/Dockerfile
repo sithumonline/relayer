@@ -5,3 +5,5 @@ COPY ./ .
 
 RUN go mod tidy
 RUN make
+
+ENTRYPOINT ["relayer-basic"]
