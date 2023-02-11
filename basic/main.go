@@ -3,6 +3,7 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/nbd-wtf/go-nostr"
 	"log"
 	"math/big"
 	"net/http"
@@ -11,10 +12,9 @@ import (
 
 	"github.com/ethereum/go-ethereum/ethclient"
 	"github.com/fiatjaf/relayer"
-	"github.com/fiatjaf/relayer/basic/pgsql"
+	"github.com/fiatjaf/relayer/basic-replay/pgsql"
 	"github.com/fiatjaf/relayer/storage/postgresql"
 	"github.com/kelseyhightower/envconfig"
-	"github.com/nbd-wtf/go-nostr"
 )
 
 type Relay struct {
