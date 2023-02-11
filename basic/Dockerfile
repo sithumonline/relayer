@@ -4,4 +4,4 @@ WORKDIR /go/src/app
 COPY ./ .
 
 RUN go mod tidy
-RUN cd basic && make
+RUN make
